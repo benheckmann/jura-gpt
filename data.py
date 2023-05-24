@@ -1,11 +1,11 @@
 import re
-from typing import Union, Dict, Any, List, Optional, Literal
-from typing_extensions import TypedDict
 import xml.etree.ElementTree as ET
-import pandas as pd
-import numpy as np
+from typing import List
 
 from haystack import Document
+from haystack.document_stores import InMemoryDocumentStore
+from haystack.nodes import PromptTemplate
+
 
 def parse_element(element):
     """ Recursively parses an XML element and returns a dictionary of its structure """
@@ -16,6 +16,7 @@ def parse_element(element):
         else:
             parsed_element[child.tag] = child.text
     return parsed_element
+
 
 def parse_content(element):
     """ Recursively parses an XML content structure and returns a string of the contents """
@@ -74,5 +75,18 @@ def parse_gg_xml_to_documents(xml_file: str) -> List[Document]:
 
     return documents
 
+
 _xml_file = "./data/grundgesetz.xml"
-documents = parse_gg_xml_to_documents(_xml_file)
+grundgesetz_documents = parse_gg_xml_to_documents(_xml_file)
+grundgesetz_in_memory_document_store = InMemoryDocumentStore(use_bm25=True)
+grundgesetz_in_memory_document_store.write_documents(grundgesetz_documents)
+
+lfqa_prompt = PromptTemplate(
+    name="lfqa",
+    prompt_text="""Synthesize a comprehensive answer from the following text for the given question. 
+Provide a clear and concise response that summarizes the key points and information presented in the text. 
+Your answer should be in your own words and be no longer than 50 words. 
+Your answer should be written in the language of the question.
+Briefly quote the passage that you used for your answer.
+\n\n Related text: {join(documents)} \n\n Question: {query} \n\n Answer:""",
+)
